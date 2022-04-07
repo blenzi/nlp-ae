@@ -1,9 +1,19 @@
 import streamlit as st
 from elasticsearch import Elasticsearch
+import base64
 
+
+
+# @st.cache
+# def extract_pdf_page(pdf="tmp.pdf", page=0):
+pdf="tmp.pdf"
+with open(pdf, "rb") as f:
+    base64_pdf = base64.b64encode(f.read()).decode('utf-8')
+
+# Embedding PDF in HTML
+pdf_display = F'<embed src="data:application/pdf;base64,{base64_pdf}" width="700" height="1000" type="application/pdf">'
 
 es = Elasticsearch('http://elasticsearch-master:9200')
-
 
 st.title("**Recherche dans dossier** Etude d'impact Projet PV GUELTAS")
 
@@ -43,7 +53,7 @@ if user_input:
                     ]
     st.write('Total hits:', res['hits']['total']['value'], '\n')
     if len(selected_hits) < len(all_hits):
-        'Selected hits:', len(hits)
+        'Selected hits:', len(selected_hits)
     'Sorting by', sort_criteria.lower()
     '-'*20
     
@@ -53,7 +63,9 @@ if user_input:
             st.write(f"{hl.replace('<em>', '**').replace('</em>', '**')}")
         st.write('-'*20, '\n')
 
-
+    if st.checkbox('Show PDF'):
+        # Display PDF
+        st.markdown(pdf_display, unsafe_allow_html=True)
 
 
     
