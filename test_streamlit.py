@@ -11,7 +11,7 @@ with open(pdf, "rb") as f:
     base64_pdf = base64.b64encode(f.read()).decode('utf-8')
 
 # Embedding PDF in HTML
-pdf_display = F'<embed src="data:application/pdf;base64,{base64_pdf}" width="700" height="1000" type="application/pdf">'
+pdf_display = F'<embed src="data:application/pdf;base64,{base64_pdf}" width="600" height="800" type="application/pdf">'
 
 es = Elasticsearch('http://elasticsearch-master:9200')
 
@@ -55,18 +55,21 @@ if user_input:
     if len(selected_hits) < len(all_hits):
         'Selected hits:', len(selected_hits)
     'Sorting by', sort_criteria.lower()
+    show_pdf = st.checkbox('Show PDF')
     '-'*20
-    
-    for hit in selected_hits:
-        st.write(f"""Page {hit['_source']['page']}, section {hit['_source']['title']}, score: {hit['_score']}""")
-        for hl in hit['highlight']['text']:
-            st.write(f"{hl.replace('<em>', '**').replace('</em>', '**')}")
-        st.write('-'*20, '\n')
+   
+    left_column, right_column = st.columns(2)
+    with left_column:
+        for hit in selected_hits:
+            st.write(f"""Page {hit['_source']['page']}, section {hit['_source']['title']}, score: {hit['_score']}""")
+            for hl in hit['highlight']['text']:
+                st.write(f"{hl.replace('<em>', '**').replace('</em>', '**')}")
+            st.write('-'*20, '\n')
 
-    if st.checkbox('Show PDF'):
-        # Display PDF
-        st.markdown(pdf_display, unsafe_allow_html=True)
-
+    if show_pdf:
+        with right_column:
+            # Display PDF
+            st.markdown(pdf_display, unsafe_allow_html=True)  
 
     
     
