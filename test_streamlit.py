@@ -31,45 +31,58 @@ if user_input:
                    )
 
     st.write(f"Searching for: {user_input}")
+    nhits = res['hits']['total']['value']
     
     # Sort hits
     sort_criteria = st.sidebar.radio('Sort hits by', ['Title order', 'Search rank'])
     
-    # Filters
-    st.sidebar.markdown("**Filters**")
-    pages = sorted(hit['_source']['page'] for hit in res['hits']['hits'])
-    scores = sorted(hit['_score'] for hit in res['hits']['hits'])
-    filter_pages = st.sidebar.slider("Page range", pages[0], pages[-1], (pages[0], pages[-1]), 1)
-    filter_score = st.sidebar.slider("Score range", scores[0], scores[-1], (scores[0], scores[-1]))
-    
-    if sort_criteria == 'Title order':
-        all_hits = sorted(res['hits']['hits'], key=lambda x: (x['_source']['page'], x['_source']['title']))
+    if nhits:
+        # Filters
+        st.sidebar.markdown("**Filters**")
+        pages = sorted(hit['_source']['page'] for hit in res['hits']['hits'])
+        scores = sorted(hit['_score'] for hit in res['hits']['hits'])
+        filter_pages = st.sidebar.slider("Page range", pages[0], pages[-1], (pages[0], pages[-1]), 1)
+        filter_score = st.sidebar.slider("Score range", scores[0], scores[-1], (scores[0], scores[-1]))
+        
+        if sort_criteria == 'Title order':
+            all_hits = sorted(res['hits']['hits'], key=lambda x: (x['_source']['page'], x['_source']['title']))
+        else:
+            all_hits = sorted(res['hits']['hits'], key=lambda x: x['_score'], reverse=True)
+        
+        selected_hits = [hit for hit in all_hits if 
+                        filter_pages[0] <= hit['_source']['page'] <= filter_pages[-1] and
+                        filter_score[0] <= hit['_score'] <= filter_score[-1]
+                        ]
     else:
-        all_hits = sorted(res['hits']['hits'], key=lambda x: x['_score'], reverse=True)
+        selected_hits = all_hits = []
     
-    selected_hits = [hit for hit in all_hits if 
-                     filter_pages[0] <= hit['_source']['page'] <= filter_pages[-1] and
-                     filter_score[0] <= hit['_score'] <= filter_score[-1]
-                    ]
-    st.write('Total hits:', res['hits']['total']['value'], '\n')
+    st.write('Total hits:', nhits, '\n')
     if len(selected_hits) < len(all_hits):
         'Selected hits:', len(selected_hits)
     'Sorting by', sort_criteria.lower()
     show_pdf = st.checkbox('Show PDF')
     '-'*20
-   
-    left_column, right_column = st.columns(2)
-    with left_column:
+
+    def show_hits():
         for hit in selected_hits:
-            st.write(f"""Page {hit['_source']['page']}, section {hit['_source']['title']}, score: {hit['_score']}""")
-            for hl in hit['highlight']['text']:
-                st.write(f"{hl.replace('<em>', '**').replace('</em>', '**')}")
+            st.write(f"""**Page {hit['_source']['page']}, score: {hit['_score']}**""")
+            expander = st.expander(hit['_source']['title'])
+            for level, title in enumerate(hit['_source']['all_titles']):
+                expander.write('\t'*level + '- ' + title)
+            if 'highlight' in hit:
+                for hl in hit['highlight']['text']:
+                    st.write(f"{hl.replace('<em>', '**').replace('</em>', '**')}")
             st.write('-'*20, '\n')
 
     if show_pdf:
+        left_column, right_column = st.columns(2)
+        with left_column:
+            show_hits()
         with right_column:
             # Display PDF
-            st.markdown(pdf_display, unsafe_allow_html=True)  
+            st.markdown(pdf_display, unsafe_allow_html=True)
+    else:
+        show_hits()
 
     
     
