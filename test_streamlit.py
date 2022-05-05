@@ -8,7 +8,7 @@ import base64
 
 # @st.cache
 # def extract_pdf_page(pdf="tmp.pdf", page=0):
-pdf="tmp.pdf"
+pdf = "tmp.pdf"
 with open(pdf, "rb") as f:
     base64_pdf = base64.b64encode(f.read()).decode('utf-8')
 
@@ -24,16 +24,16 @@ user_input = st.text_area("Search box", "panneaux")
 if user_input:
     st.write(f"Searching for: {user_input}")
 
-    m = MultiMatch(query=user_input, 
-                   fields=["title^3", "text"], # multiplies the title score by 3
+    m = MultiMatch(query=user_input,
+                   fields=["title^3", "text"],  # multiplies title score by 3
                    fuzziness="AUTO")
     s = Search(using=es, index="test-index1").query(m).highlight("text")
     response = s.execute()
     nhits = response.hits.total.value
-    
+
     # Sort hits
     sort_criteria = st.sidebar.radio('Sort hits by', ['Title order', 'Score'])
-    
+
     if nhits:
         # Filters
         st.sidebar.markdown("**Filters**")
@@ -43,26 +43,26 @@ if user_input:
             filter_pages = st.sidebar.slider("Page range", pages[0], pages[-1], (pages[0], pages[-1]), 1)
         if len(scores) > 1:
             filter_score = st.sidebar.slider("Score range", scores[0], scores[-1], (scores[0], scores[-1]))
-        
+
         if sort_criteria == 'Title order':
             all_hits = sorted(response, key=lambda hit: (hit.page, hit.title))
         else:
             all_hits = sorted(response, key=lambda hit: hit.meta.score, reverse=True)
-        
-        selected_hits = [hit for hit in all_hits if 
-                         (len(pages) <= 1 or filter_pages[0] <= hit.page <= filter_pages[-1]) 
+
+        selected_hits = [hit for hit in all_hits if
+                         (len(pages) <= 1 or filter_pages[0] <= hit.page <= filter_pages[-1])
                          and
                          (len(scores) <= 1 or filter_score[0] <= hit.meta.score <= filter_score[-1])
                         ]
     else:
         selected_hits = all_hits = []
-    
+
     st.write('Total hits:', nhits, '\n')
     if len(selected_hits) < len(all_hits):
         'Selected hits:', len(selected_hits)
     'Sorting by', sort_criteria.lower()
     show_pdf = st.checkbox('Show PDF')
-    '-'*20
+    '-' * 20
 
     def show_hits():
         for hit in selected_hits:
@@ -86,7 +86,3 @@ if user_input:
             st.markdown(pdf_display, unsafe_allow_html=True)
     else:
         show_hits()
-
-    
-    
-
