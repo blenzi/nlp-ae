@@ -1,7 +1,9 @@
 import streamlit as st
 from elasticsearch import Elasticsearch
-import base64
+from elasticsearch_dsl import Search
+from elasticsearch_dsl.query import MultiMatch
 
+import base64
 
 
 # @st.cache
@@ -20,38 +22,37 @@ st.title("**Recherche dans dossier** Etude d'impact Projet PV GUELTAS")
 user_input = st.text_area("Search box", "panneaux")
 
 if user_input:
-    res = es.search(index="test-index1", 
-                    query={"multi_match": 
-                            {"fields": ["title^3", "text"], # multiplies the title score by 3
-                             "query": user_input, 
-                             "fuzziness": "AUTO"
-                            }
-                           },
-                    highlight={"fields": {"text": {}}}
-                   )
-
     st.write(f"Searching for: {user_input}")
-    nhits = res['hits']['total']['value']
+
+    m = MultiMatch(query=user_input, 
+                   fields=["title^3", "text"], # multiplies the title score by 3
+                   fuzziness="AUTO")
+    s = Search(using=es, index="test-index1").query(m).highlight("text")
+    response = s.execute()
+    nhits = response.hits.total.value
     
     # Sort hits
-    sort_criteria = st.sidebar.radio('Sort hits by', ['Title order', 'Search rank'])
+    sort_criteria = st.sidebar.radio('Sort hits by', ['Title order', 'Score'])
     
     if nhits:
         # Filters
         st.sidebar.markdown("**Filters**")
-        pages = sorted(hit['_source']['page'] for hit in res['hits']['hits'])
-        scores = sorted(hit['_score'] for hit in res['hits']['hits'])
-        filter_pages = st.sidebar.slider("Page range", pages[0], pages[-1], (pages[0], pages[-1]), 1)
-        filter_score = st.sidebar.slider("Score range", scores[0], scores[-1], (scores[0], scores[-1]))
+        pages = sorted(hit.page for hit in response)
+        scores = sorted(hit.meta.score for hit in response)
+        if len(pages) > 1:
+            filter_pages = st.sidebar.slider("Page range", pages[0], pages[-1], (pages[0], pages[-1]), 1)
+        if len(scores) > 1:
+            filter_score = st.sidebar.slider("Score range", scores[0], scores[-1], (scores[0], scores[-1]))
         
         if sort_criteria == 'Title order':
-            all_hits = sorted(res['hits']['hits'], key=lambda x: (x['_source']['page'], x['_source']['title']))
+            all_hits = sorted(response, key=lambda hit: (hit.page, hit.title))
         else:
-            all_hits = sorted(res['hits']['hits'], key=lambda x: x['_score'], reverse=True)
+            all_hits = sorted(response, key=lambda hit: hit.meta.score, reverse=True)
         
         selected_hits = [hit for hit in all_hits if 
-                        filter_pages[0] <= hit['_source']['page'] <= filter_pages[-1] and
-                        filter_score[0] <= hit['_score'] <= filter_score[-1]
+                         (len(pages) <= 1 or filter_pages[0] <= hit.page <= filter_pages[-1]) 
+                         and
+                         (len(scores) <= 1 or filter_score[0] <= hit.meta.score <= filter_score[-1])
                         ]
     else:
         selected_hits = all_hits = []
@@ -65,13 +66,15 @@ if user_input:
 
     def show_hits():
         for hit in selected_hits:
-            st.write(f"""**Page {hit['_source']['page']}, score: {hit['_score']}**""")
-            expander = st.expander(hit['_source']['title'])
-            for level, title in enumerate(hit['_source']['all_titles']):
+            st.write(f"""**Page {hit.page}, score: {hit.meta.score}**""")
+            expander = st.expander(hit.title)
+            for level, title in enumerate(hit.all_titles):
                 expander.write('\t'*level + '- ' + title)
-            if 'highlight' in hit:
-                for hl in hit['highlight']['text']:
+            try:
+                for hl in hit.meta.highlight['text']:
                     st.write(f"{hl.replace('<em>', '**').replace('</em>', '**')}")
+            except AttributeError:
+                continue
             st.write('-'*20, '\n')
 
     if show_pdf:
