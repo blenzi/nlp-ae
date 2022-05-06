@@ -27,7 +27,7 @@ if user_input:
     m = MultiMatch(query=user_input,
                    fields=["title^3", "text"],  # multiplies title score by 3
                    fuzziness="AUTO")
-    s = Search(using=es, index="pdf-index").query(m).highlight("text")
+    s = Search(using=es, index="pdf-index").query(m).highlight("text", fragment_size=200)
     response = s.execute()
     nhits = response.hits.total.value
 
@@ -72,7 +72,7 @@ if user_input:
                 expander.write('\t'*level + '- ' + title)
             try:
                 for hl in hit.meta.highlight['text']:
-                    st.write(f"{hl.replace('<em>', '**').replace('</em>', '**')}")
+                    st.markdown(hl, unsafe_allow_html=True)
             except AttributeError:
                 continue
             st.write('-'*20, '\n')
