@@ -27,7 +27,7 @@ if user_input:
     m = MultiMatch(query=user_input,
                    fields=["title^3", "text"],  # multiplies title score by 3
                    fuzziness="AUTO")
-    s = Search(using=es, index="test-index1").query(m).highlight("text")
+    s = Search(using=es, index="pdf-index").query(m).highlight("text")
     response = s.execute()
     nhits = response.hits.total.value
 
